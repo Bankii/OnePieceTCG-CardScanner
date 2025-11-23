@@ -31,21 +31,24 @@ export const identifyCard = async (base64Image: string): Promise<IdentificationR
     const prompt = `
     You are an expert in the One Piece Card Game. Identify the card in this image.
     
-    1. **Locate the Card Code**: Look specifically for the card code (e.g., OP01-004, ST01-001, EB01-001, P-001) which is usually located at the bottom right or bottom left of the card.
-    2. **Identify the Card**: Based on the visual art and the code, identify the Name, Set, and Rarity.
-    3. **Estimate Price**: Estimate the current market price (USD) for a Raw/Near Mint copy.
-    4. **Official Image**: Provide a URL to a high-quality official image of this card (e.g., from a card database).
-    
+    **Instructions:**
+    1. **Analyze the Visuals**: First, look at the character, the scene, the colors, and the art style. Identify the character name and the specific version of the card (e.g., is it the Manga Rare, Alt Art, or standard?).
+    2. **Locate the Code**: Try to find the card code (e.g., OP01-001, ST01-001) usually at the bottom. **If the code is unreadable or too small, rely entirely on the visual artwork to identify the card.**
+    3. **Market Data**: Estimate the market price (USD) for a Raw/Near Mint copy.
+    4. **Official Image**: Provide a URL to a high-quality official image.
+
+    **Important**: Do NOT fail if you cannot read the code. Make your best guess based on the artwork.
+
     Return the result as a JSON object with the following keys:
     - "name": string
     - "set": string
-    - "code": string (The card ID, e.g. OP01-001)
+    - "code": string (The card ID. If unreadable, infer it from the artwork or return "Unknown")
     - "rarity": string
-    - "price": number (e.g. 12.50)
+    - "price": number
     - "image": string (URL)
-    - "description": string (Brief trivia)
+    - "description": string
 
-    If you cannot identify the card clearly, return "Unknown" for the name and 0 for the price.
+    If you absolutely cannot identify the character, only then return "Unknown".
   `;
 
     try {
@@ -75,10 +78,9 @@ export const identifyCard = async (base64Image: string): Promise<IdentificationR
         };
     } catch (error) {
         console.error("Error identifying card:", error);
-        // Log the full error for debugging
         if (error instanceof Error) {
-            console.error("Error details:", error.message);
+            throw new Error(error.message); // Pass the actual error message
         }
-        throw new Error("Failed to identify card. Please try again.");
+        throw new Error("Failed to parse the Log Pose (AI Error).");
     }
 };

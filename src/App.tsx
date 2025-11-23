@@ -39,7 +39,8 @@ function App() {
       setIdentificationResult(result);
     } catch (err) {
       console.error(err);
-      setError("Failed to identify card. The Grand Line is treacherous today.");
+      const errorMessage = err instanceof Error ? err.message : "The Grand Line is treacherous today.";
+      setError(`Failed to identify card: ${errorMessage}`);
       setCapturedImage(null); // Reset to allow retry
     } finally {
       setIsLoading(false);

@@ -6,7 +6,12 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 
 const genAI = new GoogleGenerativeAI(API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+const model = genAI.getGenerativeModel({
+    model: "gemini-1.5-flash",
+    generationConfig: {
+        responseMimeType: "application/json",
+    }
+});
 
 export interface IdentificationResult {
     name: string;
@@ -25,27 +30,28 @@ export const identifyCard = async (base64Image: string): Promise<IdentificationR
 
     const prompt = `
     You are an expert in the One Piece Card Game. Identify the card in this image.
-    Look specifically for the card code (e.g., OP01-004, ST01-001, EB01-001) which is usually located at the bottom right or bottom left of the card.
     
-    Use the googleSearch tool to find the current market price for a Raw/Near Mint version of this card. Prioritize prices from TCGPlayer or similar reputable sites.
-    Also find a high-quality official image URL for this card.
+    1. **Locate the Card Code**: Look specifically for the card code (e.g., OP01-004, ST01-001, EB01-001, P-001) which is usually located at the bottom right or bottom left of the card.
+    2. **Identify the Card**: Based on the visual art and the code, identify the Name, Set, and Rarity.
+    3. **Estimate Price**: Estimate the current market price (USD) for a Raw/Near Mint copy.
+    4. **Official Image**: Provide a URL to a high-quality official image of this card (e.g., from a card database).
+    
+    Return the result as a JSON object with the following keys:
+    - "name": string
+    - "set": string
+    - "code": string (The card ID, e.g. OP01-001)
+    - "rarity": string
+    - "price": number (e.g. 12.50)
+    - "image": string (URL)
+    - "description": string (Brief trivia)
 
-    Return the result as a strictly parseable JSON object with the following keys:
-    - Name: The name of the character or card.
-    - Set: The set name (e.g., Romance Dawn).
-    - Code: The card ID (e.g., OP01-001).
-    - Rarity: The rarity (e.g., L, SR, SEC, Alt Art).
-    - Price: The market price in USD as a number (e.g., 12.50).
-    - Image: A URL to the official card image.
-    - Description: A brief description or trivia about the character or scene (max 2 sentences).
-
-    JSON Output:
+    If you cannot identify the card clearly, return "Unknown" for the name and 0 for the price.
   `;
 
     try {
         const imagePart = {
             inlineData: {
-                data: base64Image.split(',')[1], // Remove 'data:image/jpeg;base64,' prefix
+                data: base64Image.split(',')[1],
                 mimeType: "image/jpeg",
             },
         };
@@ -54,21 +60,25 @@ export const identifyCard = async (base64Image: string): Promise<IdentificationR
         const response = await result.response;
         const text = response.text();
 
-        // Clean up the response to ensure it's valid JSON
-        const jsonString = text.replace(/```json/g, '').replace(/```/g, '').trim();
-        const data = JSON.parse(jsonString);
+        console.log("Gemini Raw Response:", text); // Debugging log
+
+        const data = JSON.parse(text);
 
         return {
-            name: data.Name,
-            set: data.Set,
-            code: data.Code,
-            rarity: data.Rarity,
-            price: typeof data.Price === 'string' ? parseFloat(data.Price.replace('$', '')) : data.Price,
-            image: data.Image,
-            description: data.Description,
+            name: data.name || "Unknown Card",
+            set: data.set || "Unknown Set",
+            code: data.code || "???",
+            rarity: data.rarity || "Common",
+            price: typeof data.price === 'string' ? parseFloat(data.price.replace('$', '')) : (data.price || 0),
+            image: data.image || "",
+            description: data.description || "No description available.",
         };
     } catch (error) {
         console.error("Error identifying card:", error);
+        // Log the full error for debugging
+        if (error instanceof Error) {
+            console.error("Error details:", error.message);
+        }
         throw new Error("Failed to identify card. Please try again.");
     }
 };
